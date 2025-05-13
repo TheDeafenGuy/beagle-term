@@ -337,12 +337,19 @@ var Crosh = function(argv) {
   };
 };
 
-window.onload = function() {
-  hterm.defaultStorage = new lib.Storage.Chrome(chrome.storage.sync);
+window.onload = function () {
+  // Check if `chrome.storage.sync` is available
+  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.sync) {
+    hterm.defaultStorage = new lib.Storage.Chrome(chrome.storage.sync); // Use Chrome Storage
+  } else {
+    console.warn("chrome.storage.sync is not available. Using localStorage instead.");
+    hterm.defaultStorage = new lib.Storage.Local(); // Fallback to localStorage
+  }
+
   var t = new hterm.Terminal('opt_profileName');
   t.decorate(document.querySelector('#terminal'));
 
-  t.onTerminalReady = function() {
+  t.onTerminalReady = function () {
     UI_INSTANCE.OnHtermReady();
     t.runCommandClass(Crosh, document.location.hash.substr(1));
     return true;
