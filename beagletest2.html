@@ -163,30 +163,22 @@ DrawUi.prototype = {
 
       chrome.storage.local.set(settings);
 
-      chrome.serial.connect(port, {
-        'bitrate': settings.bitrate,
-        'dataBits': settings.dataBits,
-        'parityBit': settings.parityBit,
-        'stopBits': settings.stopBits,
-        'ctsFlowControl': settings.ctsFlowControl
-      }, function(openInfo) {
-        if (openInfo === undefined) {
-          inputOutput.println('Unable to connect to device with value' +
-              settings.toString());
-          // TODO: Open 'connection dialog' again.
-          return;
-        }
+navigator.serial.requestPort().then(async (selectedPort) => {
+  const bitrate = settings.bitrate;
+  
+  await selectedPort.open({ baudRate: bitrate });
+  console.log(`Connected to port with baud rate: ${bitrate}`);
 
-        inputOutput.println('Device found on ' + port +
-                  ' via Connection ID ' + openInfo.connectionId);
-        self.connectionId = openInfo.connectionId;
-        AddConnectedSerialId(openInfo.connectionId);
-        chrome.serial.onReceive.addListener(function(info) {
-          if (info && info.data) {
-            inputOutput.print(ab2str(info.data));
-          }
-        });
-      });
+  // Example: Listening for data
+  const reader = selectedPort.readable.getReader();
+  reader.read().then(({ value, done }) => {
+    if (!done) {
+      inputOutput.print(new TextDecoder().decode(value));
+    }
+  });
+}).catch((error) => {
+  console.error("Failed to connect to the port: ", error);
+});
     });
   }
 };
@@ -259,15 +251,24 @@ var Crosh = function(argv) {
     self = this;
 
     chrome.serial.getDevices(function(ports) {
-      if (ports.length > 0) {
-        ports.forEach(function(portNames) {
-          var portPicker = document.querySelector('#portDropdown');
-          var portName = portNames.path;
-          portPicker.innerHTML = portPicker.innerHTML + '<option value="' +
-            portName + '">' + portName + '</option>';
-        });
-      }
-    });
+if (navigator.serial) {
+  navigator.serial.getPorts().then((ports) => {
+    if (ports.length > 0) {
+      ports.forEach((port) => {
+        const portPicker = document.querySelector('#portDropdown');
+        const portName = "Serial Port"; // Use a placeholder name
+        portPicker.innerHTML += `<option value="${port}">${portName}</option>`;
+      });
+    } else {
+      console.log("No serial ports found.");
+    }
+  }).catch((error) => {
+    console.error("Failed to get serial ports: ", error);
+  });
+} else {
+  console.error("Web Serial API is not supported in this browser.");
+  alert("Web Serial API is not supported in this browser.");
+}
 
     // TODO: Pass json object instead of each element('bitrate', 'dataBits' ..)
     chrome.storage.local.get('bitrate', function(result) {
